@@ -111,11 +111,14 @@ fn main() {
                                     found_count, total_targets, target, pubkey_b58
                                 );
 
-                                results.lock().unwrap().push(FoundWallet {
+                                // Save wallet to disk immediately
+                                let wallet = FoundWallet {
                                     suffix: target.to_string(),
                                     public_key: pubkey_b58.clone(),
                                     keypair_bytes,
-                                });
+                                };
+                                save_wallet(&wallet);
+                                results.lock().unwrap().push(wallet);
                             }
                         }
                     }
@@ -146,21 +149,10 @@ fn main() {
     println!("Finished in {:.1}s", elapsed.as_secs_f64());
     println!();
 
-    // Create output directory
-    let _ = fs::create_dir_all("wallets");
-
-    // Save each found wallet as a Solana CLI-compatible JSON keypair
+    // List all found wallets (already saved to disk during search)
     let results = results.lock().unwrap();
     for wallet in results.iter() {
-        let json_bytes: Vec<serde_json::Value> = wallet
-            .keypair_bytes
-            .iter()
-            .map(|&b| serde_json::Value::Number(b.into()))
-            .collect();
-        let json = serde_json::to_string(&json_bytes).unwrap();
-
         let filename = format!("wallets/{}-{}.json", wallet.suffix, wallet.public_key);
-        fs::write(&filename, &json).unwrap();
         println!("Saved: {}", filename);
         println!("  Address: {}", wallet.public_key);
         println!();
@@ -169,6 +161,19 @@ fn main() {
     println!("All keypair files are Solana CLI compatible.");
     println!("Use with: solana-keygen pubkey wallets/<file>.json");
     println!("Or set as default: solana config set --keypair wallets/<file>.json");
+}
+
+fn save_wallet(wallet: &FoundWallet) {
+    let _ = fs::create_dir_all("wallets");
+    let json_bytes: Vec<serde_json::Value> = wallet
+        .keypair_bytes
+        .iter()
+        .map(|&b| serde_json::Value::Number(b.into()))
+        .collect();
+    let json = serde_json::to_string(&json_bytes).unwrap();
+    let filename = format!("wallets/{}-{}.json", wallet.suffix, wallet.public_key);
+    fs::write(&filename, &json).unwrap();
+    println!("  Saved: {}", filename);
 }
 
 fn format_number(n: u64) -> String {
