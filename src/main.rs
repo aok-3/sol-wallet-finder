@@ -152,27 +152,21 @@ fn main() {
     // List all found wallets (already saved to disk during search)
     let results = results.lock().unwrap();
     for wallet in results.iter() {
-        let filename = format!("wallets/{}-{}.txt", wallet.suffix, wallet.public_key);
+        let filename = format!("wallets/{}.txt", wallet.suffix);
         println!("Saved: {}", filename);
         println!("  Address: {}", wallet.public_key);
         println!();
     }
 
-    println!("All keypair files are Solana CLI compatible.");
-    println!("Use with: solana-keygen pubkey wallets/<file>.txt");
-    println!("Or set as default: solana config set --keypair wallets/<file>.txt");
+    println!("Each file contains: pubkey,privatekey (base58 encoded)");
 }
 
 fn save_wallet(wallet: &FoundWallet) {
     let _ = fs::create_dir_all("wallets");
-    let json_bytes: Vec<serde_json::Value> = wallet
-        .keypair_bytes
-        .iter()
-        .map(|&b| serde_json::Value::Number(b.into()))
-        .collect();
-    let json = serde_json::to_string(&json_bytes).unwrap();
-    let filename = format!("wallets/{}-{}.txt", wallet.suffix, wallet.public_key);
-    fs::write(&filename, &json).unwrap();
+    let private_key = bs58::encode(&wallet.keypair_bytes).into_string();
+    let contents = format!("{},{}", wallet.public_key, private_key);
+    let filename = format!("wallets/{}.txt", wallet.suffix);
+    fs::write(&filename, &contents).unwrap();
     println!("  Saved: {}", filename);
 }
 
